@@ -75,6 +75,7 @@ def distinct_remarks():
     return sorted({r.get("remarks") for r in (res.data or []) if r.get("remarks")})
 
 @app.route("/")
+@app.route("/api/index")
 def index():
     search = request.args.get("q", "").strip()
     remarks = request.args.get("remarks", "All")
