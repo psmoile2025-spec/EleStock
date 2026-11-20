@@ -1,0 +1,178 @@
+{% extends "base.html" %}{% block content %}
+<!-- Summary cards -->
+{% set cards = [
+  ("Total SKUs", stats.total_skus, "📦", "from-blue-500 to-indigo-600", "bg-blue-50 text-blue-600", "text-slate-900"),
+  ("Total Stock Qty", stats.total_qty, "🔢", "from-cyan-500 to-sky-600", "bg-cyan-50 text-cyan-600", "text-slate-900"),
+  ("Stock Cost", "{:,.0f}".format(stats.cost), "💰", "from-rose-500 to-pink-600", "bg-rose-50 text-rose-600", "text-rose-700"),
+  ("Sale Value", "{:,.0f}".format(stats.sale), "🏷️", "from-sky-500 to-blue-600", "bg-sky-50 text-sky-600", "text-sky-700"),
+  ("Est. Profit", "{:,.0f}".format(stats.profit) + " (" + stats.margin_pct|string + "%)", "📈", "from-emerald-500 to-teal-600", "bg-emerald-50 text-emerald-600", "text-emerald-700"),
+  ("Low Stock ≤2", stats.low, "⚠️", "from-amber-400 to-orange-500", "bg-amber-50 text-amber-600", "text-amber-700")
+] %}
+<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5 mb-5">
+  {% for label, val, icon, bar_grad, icon_bg, val_color in cards %}
+  <div class="group relative overflow-hidden bg-white rounded-2xl p-4 shadow-sm border border-slate-200/80 hover:shadow-md hover:-translate-y-0.5 transition duration-200">
+    <!-- Top Gradient Accent Strip -->
+    <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r {{ bar_grad }}"></div>
+    <div class="flex items-center justify-between mb-2.5">
+      <span class="text-xs font-semibold text-slate-500 tracking-wide">{{ label }}</span>
+      <span class="w-8 h-8 rounded-xl {{ icon_bg }} flex items-center justify-center text-base shadow-2xs group-hover:scale-105 transition">
+        {{ icon }}
+      </span>
+    </div>
+    <div class="text-xl sm:text-2xl font-extrabold {{ val_color }} tracking-tight leading-tight break-words">
+      {{ val }}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Clean Search Bar + Add Product -->
+<div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex flex-wrap gap-2 items-center justify-between mb-4">
+  <div class="relative flex-1 min-w-[240px]">
+    <input id="liveSearch" type="text" value="{{q}}" placeholder="🔍 Search item code, description, specs, remarks…" oninput="filterCards()" class="w-full border border-slate-200 rounded-lg px-3.5 py-2 pr-9 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+    <button type="button" id="clearSearchBtn" onclick="clearSearch()" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 font-bold">&times;</button>
+  </div>
+  <button type="button" onclick="openModal('addModal')" class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-4 py-2 rounded-lg font-semibold shadow-sm">+ Add Product</button>
+</div>
+
+<p id="resultCount" class="text-sm text-slate-500 mb-3">Showing <b id="visibleCount" class="text-slate-800">{{products|length}}</b> of {{stats.total_skus}} SKUs</p>
+
+<!-- Single Column Colorful Cards -->
+<div id="productCardsGrid" class="grid grid-cols-1 gap-3.5">
+  {% for p in products %}
+  {% set qty = p.stock_qty or 0 %}
+  {% set buy = (p.buy_price or 0)|float %}
+  {% set sale = (p.sale_price or 0)|float %}
+  {% set profit_unit = sale - buy %}
+  {% set is_low = qty <= low_stock %}
+  {% set is_th = p.remarks == 'Thailand' %}
+
+  <div class="product-card bg-white rounded-xl p-4 sm:p-5 shadow-sm border border-l-4 transition hover:shadow-md {{ 'border-l-amber-500 border-amber-200 bg-gradient-to-r from-amber-50/60 to-white' if is_low else ('border-l-violet-500 border-slate-200/80' if is_th else 'border-l-sky-500 border-slate-200/80') }}">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+
+      <!-- Left: Code, No, Origin Badge, Title & Specs -->
+      <div class="space-y-1.5 min-w-0">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-xs font-bold px-2 py-0.5 rounded-md bg-slate-800 text-white">#{{ p.product_no }}</span>
+          <span class="font-mono text-xs sm:text-sm font-bold px-2.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200">{{ p.item_code }}</span>
+          <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold {{ 'bg-violet-100 text-violet-700 border border-violet-200' if is_th else 'bg-sky-100 text-sky-700 border border-sky-200' }}">
+            {{ p.remarks or '—' }}
+          </span>
+          {% if is_low %}
+          <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300">
+            ⚠ Low Stock
+          </span>
+          {% endif %}
+        </div>
+
+        <h3 class="font-bold text-slate-900 text-base sm:text-lg leading-snug">{{ p.description_brand }}</h3>
+        <p class="text-xs sm:text-sm text-slate-500">
+          Specs / Size: <span class="text-slate-700 font-semibold">{{ p.specs_size or '—' }}</span>
+        </p>
+      </div>
+
+      <!-- Right: Stock, Buy, Sale, Profit & Actions -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between md:justify-end gap-3 pt-3 md:pt-0 border-t md:border-t-0 border-slate-100">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+          <div class="rounded-lg px-3 py-2 {{ 'bg-amber-100 text-amber-900 border border-amber-200' if is_low else 'bg-cyan-50 text-cyan-900 border border-cyan-100' }}">
+            <div class="text-[11px] opacity-75 font-medium">Stock</div>
+            <div class="text-sm sm:text-base font-extrabold">{{ qty }}</div>
+          </div>
+          <div class="rounded-lg px-3 py-2 bg-rose-50/80 text-rose-900 border border-rose-100">
+            <div class="text-[11px] text-rose-600 font-medium">Buy Price</div>
+            <div class="text-sm font-bold">{{ "{:,.0f}".format(buy) }}</div>
+          </div>
+          <div class="rounded-lg px-3 py-2 bg-emerald-50 text-emerald-900 border border-emerald-200">
+            <div class="text-[11px] text-emerald-700 font-medium">Sale Price</div>
+            <div class="text-sm font-extrabold">{{ "{:,.0f}".format(sale) }}</div>
+          </div>
+          <div class="rounded-lg px-3 py-2 bg-purple-50 text-purple-900 border border-purple-100">
+            <div class="text-[11px] text-purple-700 font-medium">Profit / Unit</div>
+            <div class="text-sm font-bold">{{ "{:,.0f}".format(profit_unit) }}</div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 sm:pl-2">
+          <button type="button" onclick="openEdit({{ p.id }})" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200">Edit</button>
+          <form method="post" action="{{ url_for('delete', pid=p.id) }}" class="inline" onsubmit="return confirm('Delete {{ p.item_code }} — {{ p.description_brand }}?')">
+            <button type="submit" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200">Delete</button>
+          </form>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  {% else %}
+  <div class="bg-white rounded-xl p-8 text-center text-slate-400 shadow-sm">
+    No products found.
+  </div>
+  {% endfor %}
+</div>
+
+<div id="noMatchCard" class="hidden bg-white rounded-xl p-8 text-center text-slate-400 shadow-sm mt-3">
+  No products match your search.
+</div>
+
+<!-- Add Modal -->
+<div id="addModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"><form method="post" action="/add" class="bg-white rounded-xl w-full max-w-md p-5 space-y-3">
+<h2 class="font-bold text-lg">Add New Product</h2>
+<div class="grid grid-cols-2 gap-3"><label class="text-sm">No<input name="product_no" type="number" value="{{next_no}}" required class="w-full border rounded px-3 py-2"></label><label class="text-sm">Item Code<input name="item_code" value="{{next_code}}" required class="w-full border rounded px-3 py-2 font-mono"></label></div>
+<label class="block text-sm">Description / Brand<input name="description_brand" required class="w-full border rounded px-3 py-2"></label>
+<label class="block text-sm">Specs / Size<input name="specs_size" class="w-full border rounded px-3 py-2"></label>
+<div class="grid grid-cols-3 gap-3"><label class="text-sm">Stock<input name="stock_qty" type="number" min="0" value="0" class="w-full border rounded px-3 py-2"></label><label class="text-sm">Buy Price<input name="buy_price" type="number" step="0.01" min="0" value="0" class="w-full border rounded px-3 py-2"></label><label class="text-sm">Sale Price<input name="sale_price" type="number" step="0.01" min="0" value="0" class="w-full border rounded px-3 py-2"></label></div>
+<label class="block text-sm">Remarks / Origin<input name="remarks" value="China" list="remarksList" class="w-full border rounded px-3 py-2"></label><datalist id="remarksList">{% for r in remarks_list %}<option value="{{r}}">{% endfor %}</datalist>
+<div class="flex gap-2 justify-end"><button type="button" onclick="closeModal('addModal')" class="px-4 py-2 rounded border">Cancel</button><button class="bg-blue-600 text-white px-4 py-2 rounded font-semibold">Save Product</button></div></form></div>
+
+<!-- Edit Modal (one reusable modal, filled by JS) -->
+<div id="editModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"><form id="editForm" method="post" class="bg-white rounded-xl w-full max-w-md p-5 space-y-3">
+<h2 class="font-bold text-lg">Edit Product <span id="editTitle" class="text-blue-600"></span></h2>
+<label class="block text-sm">Description / Brand<input id="e_desc" name="description_brand" required class="w-full border rounded px-3 py-2"></label>
+<label class="block text-sm">Specs / Size<input id="e_specs" name="specs_size" class="w-full border rounded px-3 py-2"></label>
+<div class="grid grid-cols-3 gap-3"><label class="text-sm">Stock<input id="e_qty" name="stock_qty" type="number" min="0" class="w-full border rounded px-3 py-2"></label><label class="text-sm">Buy Price<input id="e_buy" name="buy_price" type="number" step="0.01" min="0" class="w-full border rounded px-3 py-2"></label><label class="text-sm">Sale Price<input id="e_sale" name="sale_price" type="number" step="0.01" min="0" class="w-full border rounded px-3 py-2"></label></div>
+<label class="block text-sm">Remarks / Origin<input id="e_remarks" name="remarks" list="remarksList" class="w-full border rounded px-3 py-2"></label>
+<div class="flex gap-2 justify-end"><button type="button" onclick="closeModal('editModal')" class="px-4 py-2 rounded border">Cancel</button><button class="bg-slate-900 text-white px-4 py-2 rounded font-semibold">Update</button></div></form></div>
+
+<script>
+const DATA = {{ products|tojson }};
+function openEdit(id){ const p = DATA.find(x=>x.id===id); if(!p) return;
+ document.getElementById('editForm').action = '/edit/'+id;
+ document.getElementById('editTitle').textContent = p.item_code;
+ document.getElementById('e_desc').value = p.description_brand||''; document.getElementById('e_specs').value = p.specs_size||'';
+ document.getElementById('e_qty').value = p.stock_qty??0; document.getElementById('e_buy').value = p.buy_price??0; document.getElementById('e_sale').value = p.sale_price??0; document.getElementById('e_remarks').value = p.remarks||'';
+ openModal('editModal'); }
+
+function filterCards() {
+  const input = document.getElementById('liveSearch');
+  const clearBtn = document.getElementById('clearSearchBtn');
+  const q = input.value.trim().toLowerCase();
+  clearBtn.classList.toggle('hidden', q.length === 0);
+
+  const cards = document.querySelectorAll('#productCardsGrid .product-card');
+  let visible = 0;
+
+  cards.forEach(card => {
+    const p = DATA.find(item => card.innerHTML.includes(item.item_code));
+    const searchBlob = p
+      ? `${p.product_no || ''} ${p.item_code || ''} ${p.description_brand || ''} ${p.specs_size || ''} ${p.remarks || ''} ${p.stock_qty ?? ''} ${p.buy_price ?? ''} ${p.sale_price ?? ''}`.toLowerCase()
+      : card.textContent.toLowerCase();
+
+    const match = !q || searchBlob.includes(q);
+    card.classList.toggle('hidden', !match);
+    if (match) visible++;
+  });
+
+  document.getElementById('visibleCount').textContent = visible;
+  const hasAnyCard = cards.length > 0;
+  document.getElementById('noMatchCard').classList.toggle('hidden', !hasAnyCard || visible > 0);
+}
+
+function clearSearch() {
+  const input = document.getElementById('liveSearch');
+  input.value = '';
+  filterCards();
+  input.focus();
+}
+
+document.addEventListener('DOMContentLoaded', filterCards);
+</script>
+{% endblock %}

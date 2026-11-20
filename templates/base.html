@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}Stock View{% endblock %} · Electronic Inventory</title>
+<link rel="icon" type="image/png" href="{{ url_for('static', filename='icon.ico') }}">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: ui-sans-serif, system-ui; }
+  @keyframes slide {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .toast { animation: slide .3s ease; }
+</style></head>
+<body class="bg-slate-100 text-slate-900 min-h-screen">
+
+<!-- Beautiful Sticky Header Bar -->
+<header class="bg-gradient-to-r from-slate-900 via-slate-900 to-indigo-950 text-white sticky top-0 z-40 border-b border-white/10 shadow-md backdrop-blur">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between gap-3 flex-wrap">
+    <!-- Brand & Live Status -->
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 via-orange-500 to-indigo-600 flex items-center justify-center text-xl shadow-md shrink-0">
+        ⚡
+      </div>
+      <div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <h1 class="font-extrabold text-base sm:text-lg tracking-tight text-white">Electronic Products — Stock View</h1>
+          <span class="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-400/25">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            Live
+          </span>
+        </div>
+        <p class="text-xs text-slate-400 mt-0.5">Real-time Inventory Management</p>
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="flex items-center gap-2.5">
+      <button
+        type="button"
+        onclick="openModal('importModal')"
+        class="inline-flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold shadow-sm border border-white/10 transition active:scale-[0.99] cursor-pointer"
+      >
+        <span>⬆</span>
+        <span>Import XLSX</span>
+      </button>
+
+      <a
+  href="{{ url_for('export_xlsx', q=q, remarks=remarks, stock=stock, sort=sort, dir=direction) }}"
+  class="inline-flex items-center gap-1.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold shadow-sm border border-white/10 transition active:scale-[0.99]"
+>
+  <span>⬇</span>
+  <span>Export XLSX</span>
+</a>
+    </div>
+  </div>
+</header>
+
+<!-- Import XLSX Modal -->
+<div id="importModal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 text-slate-900">
+  <form action="{{ url_for('import_xlsx') }}" method="post" enctype="multipart/form-data" onsubmit="return confirm('Import XLSX file? This will add or update products from the selected file.');" class="bg-white rounded-2xl w-full max-w-md p-5 sm:p-6 space-y-4 shadow-xl border border-slate-100">
+    <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+      <h2 class="font-bold text-lg text-slate-900">Import Products from XLSX</h2>
+      <button type="button" onclick="closeModal('importModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center text-xl leading-none cursor-pointer">&times;</button>
+    </div>
+    <p class="text-xs text-slate-500 leading-relaxed">
+      Select an <b class="text-slate-700">.xlsx</b> file containing columns: <code class="px-1 py-0.5 rounded bg-slate-100 text-slate-700">product_no</code>, <code class="px-1 py-0.5 rounded bg-slate-100 text-slate-700">item_code</code>, <code class="px-1 py-0.5 rounded bg-slate-100 text-slate-700">description_brand</code>, <code class="px-1 py-0.5 rounded bg-slate-100 text-slate-700">specs_size</code>, <code class="px-1 py-0.5 rounded bg-slate-100 text-slate-700">stock_qty</code>, <code class="px-1 py-0.5 rounded bg-slate-100 text-slate-700">buy_price</code>, <code class="px-1 py-0.5 rounded bg-slate-100 text-slate-700">sale_price</code>, <code class="px-1 py-0.5 rounded bg-slate-100 text-slate-700">remarks</code>.
+    </p>
+    <label class="block text-sm font-medium text-slate-700">
+      XLSX File
+      <input type="file" name="file" accept=".xlsx" required class="mt-1.5 block w-full text-sm border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500">
+    </label>
+    <div class="flex gap-2 justify-end pt-2">
+      <button type="button" onclick="closeModal('importModal')" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm font-medium cursor-pointer">Cancel</button>
+      <button type="submit" class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-semibold shadow-sm cursor-pointer">⬆ Upload & Import</button>
+    </div>
+  </form>
+</div>
+
+<main class="max-w-7xl mx-auto px-4 sm:px-6 py-5">{% block content %}{% endblock %}</main>
+{% with msgs=get_flashed_messages(with_categories=true) %}{% if msgs %}
+<div class="fixed bottom-4 right-4 space-y-2 z-50">{% for cat,m in msgs %}
+<div class="toast px-4 py-3 rounded-xl shadow-lg text-sm font-medium {{ 'bg-emerald-600 text-white' if cat=='success' else 'bg-rose-600 text-white' }}">{{ m }}</div>
+{% endfor %}</div><script>setTimeout(()=>document.querySelectorAll('.toast').forEach(e=>e.remove()),4000)</script>{% endif %}{% endwith %}
+
+<script>
+function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+</script>
+</body></html>
