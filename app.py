@@ -107,11 +107,8 @@ def index():
         low_stock=LOW_STOCK,
     )
 
-@app.route("/adjust/<int:pid>", methods=["GET", "POST"])
-# GET = safety net: a form that lost its method/action (e.g. JS failed) must redirect, never 405.
+@app.route("/adjust/<int:pid>", methods=["POST"])
 def adjust(pid):
-    if request.method == "GET":
-        return redirect(url_for("index"))
     delta = parse_int(request.form.get("delta"), 0)
     if delta not in (-1, 1):
         abort(400)
@@ -126,10 +123,8 @@ def adjust(pid):
     flash(f"{cur.data.get('item_code')} stock → {new_qty}", "success")
     return redirect(url_for("index", **request.args))
 
-@app.route("/add", methods=["GET", "POST"])
+@app.route("/add", methods=["POST"])
 def add():
-    if request.method == "GET":
-        return redirect(url_for("index"))
     data = {
         "product_no": parse_int(request.form.get("product_no")),
         "item_code": (request.form.get("item_code") or "").strip().upper(),
@@ -153,10 +148,8 @@ def add():
         flash(f"Could not add product (duplicate code?): {e}", "error")
     return redirect(url_for("index"))
 
-@app.route("/edit/<int:pid>", methods=["GET", "POST"])
+@app.route("/edit/<int:pid>", methods=["POST"])
 def edit(pid):
-    if request.method == "GET":
-        return redirect(url_for("index"))
     data = {
         "description_brand": (request.form.get("description_brand") or "").strip(),
         "specs_size": (request.form.get("specs_size") or "").strip() or None,
@@ -168,20 +161,12 @@ def edit(pid):
     if data["stock_qty"] < 0:
         flash("Stock cannot be negative.", "error")
         return redirect(url_for("index"))
-    if not data["description_brand"]:
-        flash("Description / Brand is required.", "error")
-        return redirect(url_for("index"))
-    try:
-        supabase().table("products").update(data).eq("id", pid).execute()
-        flash("Product updated.", "success")
-    except Exception as e:
-        flash(f"Could not update product: {e}", "error")
+    supabase().table("products").update(data).eq("id", pid).execute()
+    flash("Product updated.", "success")
     return redirect(url_for("index"))
 
-@app.route("/delete/<int:pid>", methods=["GET", "POST"])
+@app.route("/delete/<int:pid>", methods=["POST"])
 def delete(pid):
-    if request.method == "GET":
-        return redirect(url_for("index"))
     supabase().table("products").delete().eq("id", pid).execute()
     flash("Product deleted.", "success")
     return redirect(url_for("index"))
@@ -236,10 +221,8 @@ def export_xlsx():
         as_attachment=True,
     )
 
-@app.route("/import-xlsx", methods=["GET", "POST"])
+@app.route("/import-xlsx", methods=["POST"])
 def import_xlsx():
-    if request.method == "GET":
-        return redirect(url_for("index"))
     try:
         from openpyxl import load_workbook
     except ImportError:
@@ -330,5 +313,3 @@ def api_products():
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
-# Vercel serverless entrypoint imports this module: `from app import app` (see api/index.py).
-# Do NOT call app.run() on Vercel — the `if __name__ == "__main__"` guard below already prevents it.
